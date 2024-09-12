@@ -41,6 +41,7 @@ export const interactive = async () => {
               initialValue: 'react',
               options: [
                 { value: 'react', label: 'React' },
+                { value: 'react-native', label: 'React-Native' },
                 { value: 'vue', label: 'Vue' },
                 { value: 'solid', label: 'Solid' },
                 { value: 'qwik', label: 'Qwik' },

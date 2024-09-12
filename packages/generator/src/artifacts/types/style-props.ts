@@ -7,7 +7,9 @@ import type { UserConfig } from '@pandacss/types'
 import csstype from '../generated/csstype.d.ts.json' assert { type: 'json' }
 
 export function generateStyleProps(ctx: Context) {
-  const props = new Set(allCssProperties.concat(ctx.utility.keys()).filter(Boolean))
+  const props = new Set(
+    (ctx.config.jsxFramework === 'react-native' ? [] : allCssProperties).concat(ctx.utility.keys()).filter(Boolean),
+  )
   const propTypes = ctx.utility.getTypes()
 
   const cssVars = unionType(ctx.globalVars.vars)

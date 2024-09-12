@@ -28,6 +28,7 @@ const typesMap = {
   solid: generateSolidJsxTypes,
   vue: generateVueJsxTypes,
   qwik: generateQwikJsxTypes,
+  'react-native': undefined,
 }
 
 const typesStringLiteralMap = {
@@ -36,6 +37,7 @@ const typesStringLiteralMap = {
   qwik: generateQwikJsxStringLiteralTypes,
   preact: generatePreactJsxStringLiteralTypes,
   vue: generateVueJsxStringLiteralTypes,
+  'react-native': undefined,
 }
 
 const isKnownFramework = (framework: string): framework is JsxFramework => Boolean((typesMap as any)[framework])
@@ -57,6 +59,7 @@ const factoryMap = {
   preact: generatePreactJsxFactory,
   vue: generateVueJsxFactory,
   qwik: generateQwikJsxFactory,
+  'react-native': undefined,
 }
 
 const factoryStringLiteralMap = {
@@ -65,6 +68,7 @@ const factoryStringLiteralMap = {
   qwik: generateQwikJsxStringLiteralFactory,
   preact: generatePreactJsxStringLiteralFactory,
   vue: generateVueJsxStringLiteralFactory,
+  'react-native': undefined,
 }
 
 export function generateJsxFactory(ctx: Context) {
@@ -86,10 +90,11 @@ const patternMap = {
   preact: generatePreactJsxPattern,
   vue: generateVueJsxPattern,
   qwik: generateQwikJsxPattern,
+  'react-native': undefined,
 }
 
 export function generateJsxPatterns(ctx: Context, filters?: ArtifactFilters) {
   if (ctx.isTemplateLiteralSyntax || ctx.patterns.isEmpty() || !ctx.jsx.framework) return []
   if (!isKnownFramework(ctx.jsx.framework)) return
-  return patternMap[ctx.jsx.framework!](ctx, filters)
+  return patternMap[ctx.jsx.framework!]?.(ctx, filters)
 }

@@ -117,7 +117,7 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
 
   return details.map((recipe) => {
     const { baseName, config, upperName, variantKeyMap, dashName } = recipe
-    const { description, defaultVariants, compoundVariants, deprecated } = config
+    const { description, base, variants, defaultVariants, compoundVariants, deprecated } = config
 
     const getDefaultValueJsDoc = (key: string) => {
       if (!hasOwn(defaultVariants, key)) return
@@ -139,9 +139,12 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
         ${ctx.file.import('compact, getSlotCompoundVariant, memo, splitProps', '../helpers')}
         ${ctx.file.import('createRecipe', './create-recipe')}
 
+        const ${baseName}Base = ${stringify(base ?? {})}
+        const ${baseName}Variants = ${stringify(variants ?? {})}
         const ${baseName}DefaultVariants = ${stringify(defaultVariants ?? {})}
         const ${baseName}CompoundVariants = ${stringify(compoundVariants ?? [])}
 
+        const ${baseName}Slots = ${stringify(config.slots ?? [])}        
         const ${baseName}SlotNames = ${stringify(config.slots.map((slot) => [slot, `${config.className}__${slot}`]))}
         const ${baseName}SlotFns = /* @__PURE__ */ ${baseName}SlotNames.map(([slotName, slotKey]) => [slotName, createRecipe(slotKey, ${baseName}DefaultVariants, getSlotCompoundVariant(${baseName}CompoundVariants, slotName))])
 
@@ -161,7 +164,12 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
           splitVariantProps(props) {
             return splitProps(props, ${baseName}VariantKeys)
           },
-          getVariantProps
+          getVariantProps,
+          base: ${baseName}Base,
+          variants: ${baseName}Variants,
+          defaultVariants: ${baseName}DefaultVariants,
+          compoundVariants: ${baseName}CompoundVariants,
+          slots: ${baseName}Slots,
         })
         `,
       )
@@ -178,6 +186,13 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
 
         const ${baseName}VariantKeys = Object.keys(${baseName}VariantMap)
 
+
+        const ${baseName}Base = ${stringify(base ?? {})}
+        const ${baseName}Variants = ${stringify(variants ?? {})}
+        const ${baseName}DefaultVariants = ${stringify(defaultVariants ?? {})}
+        const ${baseName}CompoundVariants = ${stringify(compoundVariants ?? [])}
+
+
         export const ${baseName} = /* @__PURE__ */ Object.assign(memo(${baseName}Fn.recipeFn), {
           __recipe__: true,
           __name__: '${baseName}',
@@ -192,6 +207,10 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
             return splitProps(props, ${baseName}VariantKeys)
           },
           getVariantProps: ${baseName}Fn.getVariantProps,
+          base: ${baseName}Base,
+          variants: ${baseName}Variants,
+          defaultVariants: ${baseName}DefaultVariants,
+          compoundVariants: ${baseName}CompoundVariants,
         })
         `,
       )
@@ -202,8 +221,8 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
       js: jsCode,
 
       dts: outdent`
-        ${ctx.file.importType('ConditionalValue', '../types/index')}
-        ${ctx.file.importType('DistributiveOmit, Pretty', '../types/system-types')}
+        ${ctx.file.importType(`ConditionalValue, ${Recipes.isSlotRecipeConfig(config) ? ` Slot` : ''}RecipeDefinition`, '../types/index')}
+        ${ctx.file.importType('DistributiveOmit, SystemStyleObject, Pretty', '../types/system-types')}
 
         interface ${upperName}Variant {
           ${Object.keys(variantKeyMap)
@@ -225,16 +244,54 @@ export function generateRecipes(ctx: Context, filters?: ArtifactFilters) {
           } | undefined
         }
 
+${
+  Recipes.isSlotRecipeConfig(config)
+    ? `
+export type ${upperName}Slots = ${unionType(config.slots)}
+export type ${upperName}Variants = {
+  [variantKey in keyof ${upperName}Variant]: {
+    [key in ${upperName}Variant[variantKey]]: {
+      [key in ${upperName}Slots]: SystemStyleObject;
+    };
+  };
+};
+export type RecipeType = SlotRecipeDefinition<${upperName}Slots, ${upperName}Variants>;
+`
+    : `export type ${upperName}Variants = {
+  [variantKey in keyof ${upperName}Variant]: {
+    [key in ${upperName}Variant[variantKey]]: SystemStyleObject;
+  };
+};
+export type RecipeType = RecipeDefinition<${upperName}Variants>;
+`
+}
+
+        export type ${upperName}Base = RecipeType["base"];
+
+        export type ${upperName}DefaultVariants = RecipeType["defaultVariants"];
+
+        export type ${upperName}CompoundVariants = RecipeType["compoundVariants"];
+
+        export type ${upperName}Base = {
+          [key in ${upperName}Slots]: Array<${upperName}Variant[key]>
+        }
+
         export interface ${upperName}Recipe {
           __type: ${upperName}VariantProps
           (props?: ${upperName}VariantProps): ${
-            Recipes.isSlotRecipeConfig(config) ? `Pretty<Record<${unionType(config.slots)}, string>>` : 'string'
+            Recipes.isSlotRecipeConfig(config) ? `Pretty<Record<${upperName}Slots, string>>` : 'string'
           }
           raw: (props?: ${upperName}VariantProps) => ${upperName}VariantProps
           variantMap: ${upperName}VariantMap
           variantKeys: Array<keyof ${upperName}Variant>
           splitVariantProps<Props extends ${upperName}VariantProps>(props: Props): [${upperName}VariantProps, Pretty<DistributiveOmit<Props, keyof ${upperName}VariantProps>>]
           getVariantProps: (props?: ${upperName}VariantProps) => ${upperName}VariantProps
+
+          base?: ${upperName}Base
+          variants?: ${upperName}Variants
+          defaultVariants?: ${upperName}DefaultVariants
+          compoundVariants?: ${upperName}CompoundVariants
+          ${Recipes.isSlotRecipeConfig(config) ? `slots: ${upperName}Slots` : ''}
         }
 
         ${ctx.file.jsDocComment(description, { deprecated })}
